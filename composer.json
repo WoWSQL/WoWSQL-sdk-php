@@ -1,5 +1,5 @@
 {
-    "name": "WOWSQL/WOWSQL-sdk",
+    "name": "wowsql/wowsql-sdk",
     "description": "Official PHP client library for WOWSQL - MySQL Backend-as-a-Service with S3 Storage",
     "type": "library",
     "license": "MIT",
