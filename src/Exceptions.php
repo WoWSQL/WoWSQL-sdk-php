@@ -40,9 +40,9 @@ class StorageException extends WOWSQLException
  */
 class StorageLimitExceededException extends StorageException
 {
-    public function __construct($message, $response = null)
+    public function __construct($message, $statusCode = 413, $response = null)
     {
-        parent::__construct($message, 413, $response);
+        parent::__construct($message, $statusCode, $response);
     }
 }
 

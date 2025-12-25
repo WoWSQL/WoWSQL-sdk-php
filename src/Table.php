@@ -63,6 +63,18 @@ class Table
     }
 
     /**
+     * Insert a new record (alias for create).
+     * 
+     * @param array $data Record data
+     * @return array Create response with new record ID
+     * @throws WOWSQLException If the request fails
+     */
+    public function insert($data)
+    {
+        return $this->create($data);
+    }
+
+    /**
      * Update a record by ID.
      * 
      * @param mixed $recordId Record ID
