@@ -2,7 +2,7 @@
 
 Official PHP client for [WowSQL](https://wowsql.com) - MySQL Backend-as-a-Service with built-in Authentication and Storage.
 
-[![Packagist Version](https://img.shields.io/packagist/v/wowsql/wowsql-php.svg)](https://packagist.org/packages/wowsql/wowsql-php)
+[![Packagist Version](https://img.shields.io/packagist/v/wowsql/wowsql-php.svg)](https://packagist.org/packages/wowsql/wowsql-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Installation
