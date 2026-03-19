@@ -1,6 +1,6 @@
 {
     "name": "wowsql/wowsql-sdk",
-    "description": "Official PHP client library for WOWSQL - MySQL Backend-as-a-Service with S3 Storage",
+    "description": "Official PHP client library for WOWSQL - PostgreSQL Backend-as-a-Service with S3 Storage",
     "version": "3.2.0",
     "type": "library",
     "license": "MIT",
