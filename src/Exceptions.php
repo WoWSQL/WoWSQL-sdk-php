@@ -57,3 +57,14 @@ class PermissionException extends WOWSQLException
     }
 }
 
+/**
+ * Exception raised when schema operations are attempted with an anonymous key.
+ */
+class SchemaPermissionException extends WOWSQLException
+{
+    public function __construct($message = 'Schema operations require a SERVICE ROLE key.')
+    {
+        parent::__construct($message, 403);
+    }
+}
+
