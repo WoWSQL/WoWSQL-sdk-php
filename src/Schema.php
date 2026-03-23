@@ -67,25 +67,51 @@ class WOWSQLSchema
     /**
      * Create a new table.
      *
-     * Supported PostgreSQL types: SERIAL, BIGSERIAL, VARCHAR(n), TEXT, INT,
-     * BIGINT, BOOLEAN, NUMERIC(p,s), REAL, DOUBLE PRECISION, TIMESTAMPTZ,
-     * DATE, TIME, UUID, JSONB, TEXT[], INT[], BYTEA, etc.
+     * The primary key column must use PostgreSQL type UUID. Other columns may use
+     * SERIAL, VARCHAR, INT, etc.
      *
-     * @param  string     $tableName  Name of the table
-     * @param  array      $columns    Column definitions (name, type, auto_increment, unique, nullable, default)
-     * @param  string|null $primaryKey Primary key column name
-     * @param  array|null $indexes    Columns to create indexes on
+     * @param  string $tableName  Name of the table
+     * @param  array  $columns    Column definitions (name, type, auto_increment, unique, nullable, default)
+     * @param  string $primaryKey Primary key column name (must be the UUID column)
+     * @param  array|null $indexes Columns to create indexes on
      * @return array
      * @throws WOWSQLException|SchemaPermissionException
      */
-    public function createTable($tableName, array $columns, $primaryKey = null, $indexes = null)
+    public function createTable($tableName, array $columns, $primaryKey, $indexes = null)
     {
+        if ($primaryKey === null || $primaryKey === '') {
+            throw new \InvalidArgumentException('primaryKey is required; primary key must be UUID type.');
+        }
+        $this->assertUuidPrimaryKey($primaryKey, $columns);
+
         return $this->request('POST', '/api/v2/schema/tables', null, [
             'table_name' => $tableName,
             'columns' => $columns,
             'primary_key' => $primaryKey,
             'indexes' => $indexes,
         ]);
+    }
+
+    private function assertUuidPrimaryKey(string $primaryKey, array $columns): void
+    {
+        foreach ($columns as $col) {
+            if (($col['name'] ?? null) !== $primaryKey) {
+                continue;
+            }
+            $type = trim((string) ($col['type'] ?? ''));
+            if ($type === '') {
+                throw new \InvalidArgumentException('Primary key column must use PostgreSQL type UUID.');
+            }
+            $parts = preg_split('/\s+/', $type, 2);
+            $first = strtoupper($parts[0] ?? '');
+
+            if ($first !== 'UUID') {
+                throw new \InvalidArgumentException('Primary key column must use PostgreSQL type UUID.');
+            }
+
+            return;
+        }
+        throw new \InvalidArgumentException('Primary key column not found in columns.');
     }
 
     /**
