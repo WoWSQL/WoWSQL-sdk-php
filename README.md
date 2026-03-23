@@ -2,13 +2,21 @@
 
 Official PHP client for [WowSQL](https://wowsql.com) - MySQL Backend-as-a-Service with built-in Authentication and Storage.
 
-[![Packagist Version](https://img.shields.io/packagist/v/wowsql/wowsql-php.svg)](https://packagist.org/packages/wowsql/wowsql-sdk)
+[![Packagist Version](https://img.shields.io/packagist/v/wowsql/wowsql-sdk.svg)](https://packagist.org/packages/wowsql/wowsql-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Installation
 
+Releases are **git tags** (e.g. `3.2.1`). Prefer a **stable** constraint so Composer does not pick the default branch (`dev-main` / `dev-master`):
+
 ```bash
-composer require wowsql/wowsql-php
+composer require wowsql/wowsql-sdk:^3.2
+```
+
+Or pin an exact release:
+
+```bash
+composer require wowsql/wowsql-sdk:3.2.1
 ```
 
 Or add to your `composer.json`:
@@ -16,7 +24,7 @@ Or add to your `composer.json`:
 ```json
 {
     "require": {
-        "wowsql/wowsql-php": "^1.0"
+        "wowsql/wowsql-sdk": "^3.2"
     }
 }
 ```
