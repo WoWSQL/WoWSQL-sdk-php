@@ -2015,6 +2015,16 @@ $auth->clearSession();
 - ext-json
 - ext-curl (or Guzzle HTTP Client)
 
+## Maintainers: default branch and `dev-main` on Packagist
+
+Packagist shows **`dev-<branch>`** for the GitHub **default branch**. If the default is **`main`**, the list includes **`dev-main`** (many UIs highlight it). **Tagged releases** are still `3.2.x`; installs should use `composer require wowsql/wowsql-sdk:^3.2` (or `3.2.1`).
+
+To **remove the `main` branch** so **`dev-main` no longer appears** (you will keep **`dev-master`** for `master`):
+
+1. On GitHub: **Settings → Branches → Default branch** → set **`master`** (not `main`).
+2. From your machine: `git push origin --delete main`
+3. On Packagist: **Update** the package.
+
 ## Links
 
 - [Documentation](https://wowsql.com/docs)
