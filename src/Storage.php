@@ -127,7 +127,7 @@ class WOWSQLStorage
         $apiKey = '',
         $projectSlug = '',
         $baseUrl = '',
-        $baseDomain = 'wowsql.com',
+        $baseDomain = 'wowsqlconnect.com',
         $secure = true,
         $timeout = 60,
         $verifySsl = true

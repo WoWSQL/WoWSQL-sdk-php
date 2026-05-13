@@ -3,442 +3,298 @@
 namespace WOWSQL;
 
 /**
- * Fluent query builder for constructing database queries.
+ * Fluent query builder — translates all operations to PostgREST query parameters.
  */
 class QueryBuilder
 {
     private $client;
     private $tableName;
-    private $params;
-    private $filters;
+    private $queryParams = [];   // PostgREST query parameters (col=op.val)
+    private $filters     = [];   // Raw filter list for translation
+    private $selectCols  = null;
+    private $groupByCols = [];
+    private $havingList  = [];
+    private $orderItems  = [];
+    private $limitVal    = null;
+    private $offsetVal   = null;
 
     public function __construct(WOWSQLClient $client, $tableName)
     {
-        $this->client = $client;
+        $this->client    = $client;
         $this->tableName = $tableName;
-        $this->params = [];
-        $this->filters = [];
     }
 
-    /**
-     * Select specific columns or expressions.
-     *
-     * @param  string ...$columns Column name(s) or expressions
-     * @return $this
-     */
     public function select(...$columns)
     {
-        if (count($columns) === 1 && $columns[0] === '*') {
-            $this->params['select'] = '*';
+        if (count($columns) === 1 && is_array($columns[0])) {
+            $this->selectCols = $columns[0];
         } else {
-            $this->params['select'] = implode(',', $columns);
+            $this->selectCols = $columns;
         }
         return $this;
     }
 
-    /**
-     * Add a filter condition.
-     *
-     * @param  string $column    Column name
-     * @param  string $operator  Operator (eq, neq, gt, gte, lt, lte, like, in, not_in, between, not_between, is, is_not)
-     * @param  mixed  $value     Filter value
-     * @param  string $logicalOp Logical operator ("AND" or "OR")
-     * @return $this
-     */
     public function filter($column, $operator, $value, $logicalOp = 'AND')
     {
-        $this->addFilter($column, $operator, $value, $logicalOp);
-        return $this;
-    }
-
-    public function eq($column, $value)
-    {
-        $this->addFilter($column, 'eq', $value);
-        return $this;
-    }
-
-    public function neq($column, $value)
-    {
-        $this->addFilter($column, 'neq', $value);
-        return $this;
-    }
-
-    public function gt($column, $value)
-    {
-        $this->addFilter($column, 'gt', $value);
-        return $this;
-    }
-
-    public function gte($column, $value)
-    {
-        $this->addFilter($column, 'gte', $value);
-        return $this;
-    }
-
-    public function lt($column, $value)
-    {
-        $this->addFilter($column, 'lt', $value);
-        return $this;
-    }
-
-    public function lte($column, $value)
-    {
-        $this->addFilter($column, 'lte', $value);
-        return $this;
-    }
-
-    public function like($column, $pattern)
-    {
-        $this->addFilter($column, 'like', $pattern);
-        return $this;
-    }
-
-    public function isNull($column)
-    {
-        $this->addFilter($column, 'is', null);
-        return $this;
-    }
-
-    public function isNotNull($column)
-    {
-        $this->addFilter($column, 'is_not', null);
-        return $this;
-    }
-
-    public function in($column, $values)
-    {
-        $this->addFilter($column, 'in', $values);
-        return $this;
-    }
-
-    public function notIn($column, $values)
-    {
-        $this->addFilter($column, 'not_in', $values);
-        return $this;
-    }
-
-    public function between($column, $min, $max)
-    {
-        $this->addFilter($column, 'between', [$min, $max]);
-        return $this;
-    }
-
-    public function notBetween($column, $min, $max)
-    {
-        $this->addFilter($column, 'not_between', [$min, $max]);
-        return $this;
-    }
-
-    /**
-     * Add an OR filter condition.
-     *
-     * @param  string $column
-     * @param  string $op
-     * @param  mixed  $value
-     * @return $this
-     */
-    public function orWhere($column, $op, $value)
-    {
-        $this->addFilter($column, $op, $value, 'OR');
-        return $this;
-    }
-
-    /**
-     * Order results by column.
-     *
-     * @param  string $column Column to order by
-     * @param  bool   $desc   Descending order (default: false → ascending)
-     * @return $this
-     */
-    public function orderBy($column, $desc = false)
-    {
-        $this->params['order'] = $column;
-        $this->params['order_direction'] = $desc ? 'desc' : 'asc';
-        return $this;
-    }
-
-    /**
-     * Order results by column (string direction variant).
-     *
-     * @param  string $column    Column to order by
-     * @param  string $direction Sort direction ('asc' or 'desc')
-     * @return $this
-     */
-    public function order($column, $direction = 'asc')
-    {
-        return $this->orderBy($column, strtolower($direction) === 'desc');
-    }
-
-    /**
-     * Group results by column(s).
-     *
-     * @param  string ...$columns Column name(s) to group by
-     * @return $this
-     */
-    public function groupBy(...$columns)
-    {
-        $this->params['group_by'] = $columns;
-        return $this;
-    }
-
-    /**
-     * Add HAVING clause filter (for filtering aggregated results).
-     *
-     * @param  string $column   Column name or aggregate function
-     * @param  string $operator Operator (eq, neq, gt, gte, lt, lte)
-     * @param  mixed  $value    Filter value
-     * @return $this
-     */
-    public function having($column, $operator, $value)
-    {
-        if (!isset($this->params['having'])) {
-            $this->params['having'] = [];
-        }
-        $this->params['having'][] = [
-            'column' => $column,
-            'operator' => $operator,
-            'value' => $value,
+        $this->filters[] = [
+            'column'     => $column,
+            'operator'   => $operator,
+            'value'      => $value,
+            'logical_op' => $logicalOp,
         ];
         return $this;
     }
 
-    /**
-     * Limit number of results.
-     *
-     * @param  int $limit
-     * @return $this
-     */
+    public function eq($column, $value)      { return $this->filter($column, 'eq',       $value); }
+    public function neq($column, $value)     { return $this->filter($column, 'neq',      $value); }
+    public function gt($column, $value)      { return $this->filter($column, 'gt',       $value); }
+    public function gte($column, $value)     { return $this->filter($column, 'gte',      $value); }
+    public function lt($column, $value)      { return $this->filter($column, 'lt',       $value); }
+    public function lte($column, $value)     { return $this->filter($column, 'lte',      $value); }
+    public function like($column, $pattern)  { return $this->filter($column, 'like',     $pattern); }
+    public function ilike($column, $pattern) { return $this->filter($column, 'ilike',    $pattern); }
+    public function isNull($column)          { return $this->filter($column, 'is',       null); }
+    public function isNotNull($column)       { return $this->filter($column, 'is_not',   null); }
+    public function in($column, $values)     { return $this->filter($column, 'in',       $values); }
+    public function notIn($column, $values)  { return $this->filter($column, 'not_in',   $values); }
+
+    public function between($column, $min, $max)
+    {
+        return $this->filter($column, 'between', [$min, $max]);
+    }
+
+    public function notBetween($column, $min, $max)
+    {
+        return $this->filter($column, 'not_between', [$min, $max]);
+    }
+
+    public function orWhere($column, $op, $value)
+    {
+        return $this->filter($column, $op, $value, 'OR');
+    }
+
+    public function orderBy($column, $desc = false)
+    {
+        $this->orderItems[] = ['column' => $column, 'direction' => $desc ? 'desc' : 'asc'];
+        return $this;
+    }
+
+    public function order($column, $direction = 'asc')
+    {
+        $this->orderItems[] = ['column' => $column, 'direction' => strtolower($direction)];
+        return $this;
+    }
+
+    public function groupBy(...$columns)
+    {
+        $this->groupByCols = is_array($columns[0] ?? null) ? $columns[0] : $columns;
+        return $this;
+    }
+
+    public function having($column, $operator, $value)
+    {
+        $this->havingList[] = ['column' => $column, 'operator' => $operator, 'value' => $value];
+        return $this;
+    }
+
     public function limit($limit)
     {
-        $this->params['limit'] = (string)$limit;
+        $this->limitVal = (int)$limit;
         return $this;
     }
 
-    /**
-     * Skip records (pagination offset).
-     *
-     * @param  int $offset
-     * @return $this
-     */
     public function offset($offset)
     {
-        $this->params['offset'] = (string)$offset;
+        $this->offsetVal = (int)$offset;
         return $this;
     }
 
     /**
-     * Execute the query.
+     * Execute the query using PostgREST native query parameters.
      *
-     * @return array Query response with data and metadata
+     * @return array{data: array, count: int, total: int, limit: int, offset: int}
+     * @throws WOWSQLException
      */
     public function get()
     {
-        $hasAdvancedFeatures =
-            (isset($this->params['group_by']) && !empty($this->params['group_by'])) ||
-            (isset($this->params['having']) && !empty($this->params['having'])) ||
-            $this->hasAdvancedFilters();
+        $params = [];
 
-        if ($hasAdvancedFeatures) {
-            $body = $this->buildQueryBody();
-            return $this->client->request('POST', "/{$this->tableName}/query", null, $body);
-        } else {
-            return $this->client->request('GET', "/{$this->tableName}", $this->params, null);
+        // SELECT
+        $sel = $this->selectCols;
+        if (!empty($this->groupByCols)) {
+            $sel = $sel ? array_unique(array_merge($sel, $this->groupByCols)) : $this->groupByCols;
         }
+        if ($sel) {
+            $params['select'] = implode(',', $sel);
+        }
+
+        // FILTERS → PostgREST native
+        foreach ($this->filters as $f) {
+            $col = $f['column'];
+            $op  = $f['operator'];
+            $val = $f['value'];
+
+            switch ($op) {
+                case 'eq':          $params[$col] = "eq.{$val}"; break;
+                case 'neq':         $params[$col] = "neq.{$val}"; break;
+                case 'gt':          $params[$col] = "gt.{$val}"; break;
+                case 'gte':         $params[$col] = "gte.{$val}"; break;
+                case 'lt':          $params[$col] = "lt.{$val}"; break;
+                case 'lte':         $params[$col] = "lte.{$val}"; break;
+                case 'like':        $params[$col] = 'like.' . str_replace('%', '*', (string)$val); break;
+                case 'ilike':       $params[$col] = 'ilike.' . str_replace('%', '*', (string)$val); break;
+                case 'is':          $params[$col] = $val === null ? 'is.null' : "is.{$val}"; break;
+                case 'is_not':      $params[$col] = $val === null ? 'not.is.null' : "not.is.{$val}"; break;
+                case 'in':
+                    $list = is_array($val) ? implode(',', $val) : $val;
+                    $params[$col] = "in.({$list})";
+                    break;
+                case 'not_in':
+                    $list = is_array($val) ? implode(',', $val) : $val;
+                    $params[$col] = "not.in.({$list})";
+                    break;
+                case 'between':
+                    if (is_array($val) && count($val) === 2) {
+                        $params[$col]          = "gte.{$val[0]}";
+                        $params[$col . '_lte'] = "lte.{$val[1]}";
+                    }
+                    break;
+                case 'not_between':
+                    if (is_array($val) && count($val) === 2) {
+                        $params[$col . '_lt'] = "lt.{$val[0]}";
+                        $params[$col . '_gt'] = "gt.{$val[1]}";
+                    }
+                    break;
+            }
+        }
+
+        // ORDER — PostgREST: ?order=col.asc,col2.desc
+        if (!empty($this->orderItems)) {
+            $parts = array_map(function ($o) {
+                return $o['column'] . '.' . ($o['direction'] ?? 'asc');
+            }, $this->orderItems);
+            $params['order'] = implode(',', $parts);
+        }
+
+        // LIMIT / OFFSET
+        if ($this->limitVal !== null)  $params['limit']  = (string)$this->limitVal;
+        if ($this->offsetVal !== null) $params['offset'] = (string)$this->offsetVal;
+
+        $headers = ['Prefer' => 'count=exact'];
+        $result = $this->client->request('GET', "/{$this->tableName}", $params, null, $headers);
+
+        $data    = is_array($result) ? (isset($result[0]) || empty($result) ? $result : [$result]) : [];
+        $crTotal = WOWSQLClient::parseTotalFromContentRange($this->client->lastContentRange, count($data));
+
+        return [
+            'data'   => $data,
+            'count'  => count($data),
+            'total'  => $crTotal,
+            'limit'  => $this->limitVal ?? 100,
+            'offset' => $this->offsetVal ?? 0,
+        ];
     }
 
-    /**
-     * Execute the query (alias for get).
-     *
-     * @return array
-     */
     public function execute()
     {
         return $this->get();
     }
 
-    /**
-     * Get first record matching query.
-     *
-     * @return array|null First record or null
-     */
     public function first()
     {
         $result = $this->limit(1)->get();
         return !empty($result['data']) ? $result['data'][0] : null;
     }
 
-    /**
-     * Get exactly one record. Throws if zero or more than one found.
-     *
-     * @return array The single matching record
-     * @throws WOWSQLException If zero or more than one record found
-     */
     public function single()
     {
         $result = $this->limit(2)->get();
-        if (empty($result['data'])) {
-            throw new WOWSQLException('No records found');
-        }
-        if (count($result['data']) > 1) {
-            throw new WOWSQLException('Multiple records found, expected exactly one');
-        }
+        if (empty($result['data'])) throw new WOWSQLException('No records found');
+        if (count($result['data']) > 1) throw new WOWSQLException('Multiple records found, expected exactly one');
         return $result['data'][0];
     }
 
-    /**
-     * Get the total count of records matching the current filters.
-     *
-     * @return int
-     */
     public function count()
     {
-        $savedSelect = $this->params['select'] ?? null;
-        $savedGroupBy = null;
-        $savedHaving = null;
-        $savedOrder = null;
-        $savedOrderDir = null;
-
-        if (isset($this->params['group_by'])) {
-            $savedGroupBy = $this->params['group_by'];
-            unset($this->params['group_by']);
-        }
-        if (isset($this->params['having'])) {
-            $savedHaving = $this->params['having'];
-            unset($this->params['having']);
-        }
-        if (isset($this->params['order'])) {
-            $savedOrder = $this->params['order'];
-            unset($this->params['order']);
-        }
-        if (isset($this->params['order_direction'])) {
-            $savedOrderDir = $this->params['order_direction'];
-            unset($this->params['order_direction']);
-        }
-
-        $this->params['select'] = 'COUNT(*) as count';
+        $saved = [$this->selectCols, $this->groupByCols, $this->havingList, $this->orderItems,
+                  $this->limitVal, $this->offsetVal];
+        $this->selectCols  = null;
+        $this->groupByCols = [];
+        $this->havingList  = [];
+        $this->orderItems  = [];
+        $this->limitVal    = 0;
+        $this->offsetVal   = null;
 
         try {
-            $result = $this->get();
+            $headers = ['Prefer' => 'count=exact'];
+            $params  = $this->buildFilterParams();
+            $params['limit'] = '0';
+            $this->client->request('GET', "/{$this->tableName}", $params, null, $headers);
+            return WOWSQLClient::parseTotalFromContentRange($this->client->lastContentRange, 0);
         } finally {
-            if ($savedSelect !== null) {
-                $this->params['select'] = $savedSelect;
-            } else {
-                unset($this->params['select']);
-            }
-            if ($savedGroupBy !== null) {
-                $this->params['group_by'] = $savedGroupBy;
-            }
-            if ($savedHaving !== null) {
-                $this->params['having'] = $savedHaving;
-            }
-            if ($savedOrder !== null) {
-                $this->params['order'] = $savedOrder;
-            }
-            if ($savedOrderDir !== null) {
-                $this->params['order_direction'] = $savedOrderDir;
-            }
+            [$this->selectCols, $this->groupByCols, $this->havingList, $this->orderItems,
+             $this->limitVal, $this->offsetVal] = $saved;
         }
-
-        if (!empty($result['data'])) {
-            return (int)($result['data'][0]['count'] ?? 0);
-        }
-        return 0;
     }
 
-    /**
-     * Paginate results with page-based interface.
-     *
-     * @param  int $page    Page number (1-indexed)
-     * @param  int $perPage Records per page
-     * @return array{data: array, page: int, per_page: int, total: int, total_pages: int}
-     */
+    public function sum($column)
+    {
+        $saved = $this->selectCols;
+        $this->selectCols = ["sum({$column})"];
+        $this->limitVal   = null;
+        $this->offsetVal  = null;
+        try {
+            $result = $this->get();
+            return (float)(($result['data'][0]['sum'] ?? 0) ?: 0);
+        } finally {
+            $this->selectCols = $saved;
+        }
+    }
+
+    public function avg($column)
+    {
+        $saved = $this->selectCols;
+        $this->selectCols = ["avg({$column})"];
+        $this->limitVal   = null;
+        $this->offsetVal  = null;
+        try {
+            $result = $this->get();
+            return (float)(($result['data'][0]['avg'] ?? 0) ?: 0);
+        } finally {
+            $this->selectCols = $saved;
+        }
+    }
+
     public function paginate($page = 1, $perPage = 20)
     {
         $offsetVal = (max($page, 1) - 1) * $perPage;
-        $result = $this->limit($perPage)->offset($offsetVal)->get();
-        $total = $result['total'] ?? $result['count'] ?? 0;
-        $totalPages = $total > 0 ? (int)ceil($total / $perPage) : 0;
-
+        $result    = $this->limit($perPage)->offset($offsetVal)->get();
+        $total     = $result['total'] ?? 0;
         return [
-            'data' => $result['data'],
-            'page' => $page,
-            'per_page' => $perPage,
-            'total' => $total,
-            'total_pages' => $totalPages,
+            'data'        => $result['data'],
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total'       => $total,
+            'total_pages' => $total > 0 ? (int)ceil($total / $perPage) : 0,
         ];
     }
 
-    // ── Internal helpers ─────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────
 
-    private function hasAdvancedFilters()
+    private function buildFilterParams()
     {
-        foreach ($this->filters as $filter) {
-            $op = $filter['operator'];
-            if (in_array($op, ['in', 'not_in', 'between', 'not_between'])) {
-                return true;
-            }
+        $params = [];
+        foreach ($this->filters as $f) {
+            $col = $f['column'];
+            $op  = $f['operator'];
+            $val = $f['value'];
+            if ($op === 'eq')    $params[$col] = "eq.{$val}";
+            elseif ($op === 'neq') $params[$col] = "neq.{$val}";
+            elseif ($op === 'gt')  $params[$col] = "gt.{$val}";
+            elseif ($op === 'gte') $params[$col] = "gte.{$val}";
+            elseif ($op === 'lt')  $params[$col] = "lt.{$val}";
+            elseif ($op === 'lte') $params[$col] = "lte.{$val}";
         }
-        return false;
-    }
-
-    private function buildQueryBody()
-    {
-        $body = [];
-
-        if (isset($this->params['select'])) {
-            $body['select'] = is_array($this->params['select'])
-                ? $this->params['select']
-                : explode(',', $this->params['select']);
-        }
-
-        if (!empty($this->filters)) {
-            $body['filters'] = $this->filters;
-        }
-
-        if (isset($this->params['group_by'])) {
-            $body['group_by'] = is_array($this->params['group_by'])
-                ? $this->params['group_by']
-                : [$this->params['group_by']];
-        }
-
-        if (isset($this->params['having'])) {
-            $body['having'] = $this->params['having'];
-        }
-
-        if (isset($this->params['order'])) {
-            $body['order_by'] = $this->params['order'];
-            $body['order_direction'] = $this->params['order_direction'] ?? 'asc';
-        }
-
-        if (isset($this->params['limit'])) {
-            $body['limit'] = (int)$this->params['limit'];
-        }
-
-        if (isset($this->params['offset'])) {
-            $body['offset'] = (int)$this->params['offset'];
-        }
-
-        return $body;
-    }
-
-    private function addFilter($column, $op, $value, $logicalOp = 'AND')
-    {
-        $this->filters[] = [
-            'column' => $column,
-            'operator' => $op,
-            'value' => $value,
-            'logical_op' => $logicalOp,
-        ];
-
-        $filterValue = "{$column}.{$op}."
-            . ($value !== null
-                ? (is_array($value) ? json_encode($value) : (string)$value)
-                : 'null');
-
-        if (isset($this->params['filter'])) {
-            $this->params['filter'] .= ',' . $filterValue;
-        } else {
-            $this->params['filter'] = $filterValue;
-        }
+        return $params;
     }
 }

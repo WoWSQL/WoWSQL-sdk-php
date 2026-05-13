@@ -181,7 +181,7 @@ class ProjectAuthClient
     public function __construct(
         $projectUrl,
         $apiKey,
-        $baseDomain = 'wowsql.com',
+        $baseDomain = 'wowsqlconnect.com',
         $secure = true,
         $timeout = 30,
         $verifySsl = true,
