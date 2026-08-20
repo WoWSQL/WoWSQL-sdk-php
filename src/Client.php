@@ -85,8 +85,24 @@ class WOWSQLClient
         return new Table($this, $tableName);
     }
 
+    /** @var WowSQLRealtime|null */
+    private $realtimeClient;
+
+    public function realtime()
+    {
+        if (!$this->realtimeClient) {
+            $this->realtimeClient = new WowSQLRealtime($this->baseUrl, $this->apiKey);
+        }
+        return $this->realtimeClient;
+    }
+
     /** No-op — provided for API parity. */
-    public function close() {}
+    public function close()
+    {
+        if ($this->realtimeClient) {
+            $this->realtimeClient->disconnect();
+        }
+    }
 
     /**
      * Make an HTTP request and return the decoded response body.

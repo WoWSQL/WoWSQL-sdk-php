@@ -1,6 +1,6 @@
 # WowSQL PHP SDK
 
-The official PHP SDK for [WowSQL](https://wowsqlconnect.com). Provides a clean, chainable interface for all PostgREST database operations, authentication, file storage, and schema management.
+The official PHP SDK for [WowSQL](https://wowsqlconnect.com). Provides a clean, chainable interface for all PostgREST database operations, authentication, file storage, realtime, and schema management.
 
 ---
 
@@ -46,6 +46,7 @@ The official PHP SDK for [WowSQL](https://wowsqlconnect.com). Provides a clean, 
   - [upload / uploadFromPath](#upload--uploadfrompath)
   - [listFiles / download / deleteFile](#listfiles--download--deletefile)
   - [getPublicUrl](#getpublicurl)
+- [Realtime](#realtime)
 - [Schema Management](#schema-management)
   - [createTable](#createtable)
   - [addColumn / dropColumn / renameColumn](#addcolumn--dropcolumn--renamecolumn)
@@ -60,6 +61,7 @@ The official PHP SDK for [WowSQL](https://wowsqlconnect.com). Provides a clean, 
 - PHP 7.4 or higher
 - `ext-curl` enabled
 - Composer
+- `textalk/websocket` (optional; required for realtime — `composer require textalk/websocket`)
 
 ---
 
@@ -575,6 +577,43 @@ $storage->deleteFile('avatars', 'users/alice.jpg');
 ```php
 $url = $storage->getPublicUrl('avatars', 'users/alice.jpg');
 echo $url;   // https://myproject.wowsqlconnect.com/api/v1/storage/...
+```
+
+---
+
+## Realtime
+
+Subscribe to INSERT / UPDATE / DELETE, broadcast ephemeral events, and track presence. Uses the **same anon or service_role key** as REST.
+
+The SDK connects to:
+
+```
+wss://<project>.wowsqlconnect.com/realtime/v1/websocket?apikey=<wowsql_anon_... or wowsql_service_...>
+```
+
+Enable a table first (`POST /realtime/v1/enable` with `schema_name` and `table_name`) before postgres changes. Channel `send` / presence do **not** need a Postgres trigger. Payloads are capped at 64 KiB. Missing key closes **4001**; invalid key closes **4003** (do not reconnect). Multi-replica deployments need `REDIS_URL`.
+
+Requires `textalk/websocket`. PHP uses a **blocking** `listen()` loop — run it in a worker process.
+
+```php
+$rt = $client->realtime();
+$rt->subscribe('messages', function ($change) {
+    echo $change['event'] . ' ' . json_encode($change['new'] ?? $change['old']);
+});
+
+$channel = $rt->channel('chat');
+$channel->on('broadcast', ['event' => 'typing'], function ($msg) {
+    print_r($msg['payload']);
+});
+$channel->on('presence', [], function ($msg) use ($channel) {
+    print_r($channel->presenceState());
+});
+$channel->subscribe();
+$channel->track(['user' => 'alice']);
+$channel->send('typing', ['user' => 'alice']);
+
+// Blocking receive loop
+$rt->listen();
 ```
 
 ---

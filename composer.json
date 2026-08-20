@@ -1,5 +1,6 @@
 {
     "name": "wowsql/wowsql-sdk",
+    "version": "3.9.0",
     "description": "Official PHP client library for WOWSQL - PostgreSQL Backend-as-a-Service with S3 Storage",
     "type": "library",
     "license": "Elastic-2.0",
@@ -12,6 +13,9 @@
     "require": {
         "php": ">=7.4",
         "guzzlehttp/guzzle": "^7.0"
+    },
+    "suggest": {
+        "textalk/websocket": "Required for client.realtime() WebSocket subscribe / broadcast / presence"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.0"
