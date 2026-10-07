@@ -1,6 +1,6 @@
 {
     "name": "wowsql/wowsql-sdk",
-    "version": "3.9.0",
+    "version": "3.9.1",
     "description": "Official PHP client library for WOWSQL - PostgreSQL Backend-as-a-Service with S3 Storage",
     "type": "library",
     "license": "Elastic-2.0",

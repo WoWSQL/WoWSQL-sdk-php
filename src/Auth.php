@@ -378,53 +378,80 @@ class ProjectAuthClient
     }
 
     /**
-     * Send OTP code to user's email.
+     * Send OTP via email or phone (SMS). Provide exactly one of email or phone.
      *
-     * @param  string $email
-     * @param  string $purpose 'login', 'signup', or 'password_reset'
+     * @param  string|null $email
+     * @param  string      $purpose 'login', 'signup', or 'password_reset'
+     * @param  string|null $phone   E.164 phone (e.g. +15551234567)
      * @return array
      * @throws WOWSQLException
      */
-    public function sendOtp($email, $purpose = 'login')
+    public function sendOtp($email = null, $purpose = 'login', $phone = null)
     {
         if (!in_array($purpose, ['login', 'signup', 'password_reset'])) {
             throw new WOWSQLException("Purpose must be 'login', 'signup', or 'password_reset'");
         }
+        $hasEmail = $email !== null && $email !== '';
+        $hasPhone = $phone !== null && $phone !== '';
+        if ($hasEmail === $hasPhone) {
+            throw new WOWSQLException('Provide exactly one of email or phone');
+        }
 
-        $data = $this->request('POST', '/otp/send', null, [
-            'email' => $email,
-            'purpose' => $purpose,
-        ]);
+        $payload = ['purpose' => $purpose];
+        if ($hasEmail) {
+            $payload['email'] = $email;
+        }
+        if ($hasPhone) {
+            $payload['phone'] = $phone;
+        }
+
+        $data = $this->request('POST', '/otp/send', null, $payload);
         return [
             'success' => $data['success'] ?? true,
-            'message' => $data['message'] ?? 'If that email exists, an OTP code has been sent',
+            'message' => $data['message'] ?? ($hasPhone
+                ? 'If that phone exists, an OTP code has been sent'
+                : 'If that email exists, an OTP code has been sent'),
         ];
     }
 
     /**
-     * Verify OTP and complete authentication.
+     * Verify OTP via email or phone. Provide exactly one of email or phone.
      *
-     * @param  string      $email
+     * @param  string|null $email
      * @param  string      $otp
      * @param  string      $purpose
      * @param  string|null $newPassword Required for password_reset
+     * @param  string|null $phone
      * @return AuthResponse|array
      * @throws WOWSQLException
      */
-    public function verifyOtp($email, $otp, $purpose = 'login', $newPassword = null)
+    public function verifyOtp($email = null, $otp = null, $purpose = 'login', $newPassword = null, $phone = null)
     {
+        if ($otp === null || $otp === '') {
+            throw new WOWSQLException('otp is required');
+        }
         if (!in_array($purpose, ['login', 'signup', 'password_reset'])) {
             throw new WOWSQLException("Purpose must be 'login', 'signup', or 'password_reset'");
+        }
+        $hasEmail = $email !== null && $email !== '';
+        $hasPhone = $phone !== null && $phone !== '';
+        if ($hasEmail === $hasPhone) {
+            throw new WOWSQLException('Provide exactly one of email or phone');
         }
         if ($purpose === 'password_reset' && $newPassword === null) {
             throw new WOWSQLException('new_password is required for password_reset purpose');
         }
 
         $payload = [
-            'email' => $email,
             'otp' => $otp,
             'purpose' => $purpose,
         ];
+        if ($hasEmail) {
+            $payload['email'] = $email;
+        }
+        if ($hasPhone) {
+            $payload['phone'] = $phone;
+        }
         if ($newPassword !== null) {
             $payload['new_password'] = $newPassword;
         }
