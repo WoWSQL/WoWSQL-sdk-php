@@ -399,12 +399,11 @@ echo $response['refresh_token'];
 
 ### CAPTCHA (Turnstile)
 
-Optional. Only required when Attack Protection → Turnstile is enabled. Existing calls without a token are unchanged.
+Optional. Only required when dashboard **Attack Protection → Turnstile** is enabled.
+
+Create a Cloudflare Turnstile widget for **your** app domain at [dash.cloudflare.com/turnstile](https://dash.cloudflare.com/turnstile) and paste the **site key** and **secret** in Attack Protection. WoWSQL does not provide a shared widget — each project must use its own keys bound to that hostname. `GET /auth/v1/settings` returns your `captcha.site_key`. Render Turnstile with that key, then pass the token. Omit it when captcha is off — existing calls without a token are unchanged.
 
 ```php
-// 1. GET /auth/v1/settings → captcha.site_key
-// 2. Render Cloudflare Turnstile with that site key
-// 3. Pass the token (last argument on each method):
 $auth->signUp('alice@example.com', 'SecurePass123!', null, null, $turnstileToken);
 $auth->signIn('alice@example.com', 'SecurePass123!', $turnstileToken);
 $auth->forgotPassword('alice@example.com', $turnstileToken);

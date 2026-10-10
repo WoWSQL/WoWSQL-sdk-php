@@ -4,5 +4,5 @@ namespace WOWSQL;
 
 class Version
 {
-    public const VERSION = '3.9.2';
+    public const VERSION = '3.9.3';
 }
