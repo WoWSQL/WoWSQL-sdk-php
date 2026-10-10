@@ -218,7 +218,7 @@ class ProjectAuthClient
      * @return AuthResponse
      * @throws WOWSQLException
      */
-    public function signUp($email, $password, $fullName = null, $userMetadata = null)
+    public function signUp($email, $password, $fullName = null, $userMetadata = null, $captchaToken = null)
     {
         $payload = [
             'email' => $email,
@@ -229,6 +229,9 @@ class ProjectAuthClient
         }
         if ($userMetadata !== null) {
             $payload['user_metadata'] = $userMetadata;
+        }
+        if ($captchaToken) {
+            $payload['captcha_token'] = $captchaToken;
         }
 
         $data = $this->request('POST', '/signup', null, $payload);
@@ -245,12 +248,15 @@ class ProjectAuthClient
      * @return AuthResponse
      * @throws WOWSQLException
      */
-    public function signIn($email, $password)
+    public function signIn($email, $password, $captchaToken = null)
     {
         $payload = [
             'email' => $email,
             'password' => $password,
         ];
+        if ($captchaToken) {
+            $payload['captcha_token'] = $captchaToken;
+        }
         $data = $this->request('POST', '/login', null, $payload);
         $session = $this->persistSession($data);
         return new AuthResponse($session);
@@ -348,9 +354,13 @@ class ProjectAuthClient
      * @return array
      * @throws WOWSQLException
      */
-    public function forgotPassword($email)
+    public function forgotPassword($email, $captchaToken = null)
     {
-        $data = $this->request('POST', '/forgot-password', null, ['email' => $email]);
+        $payload = ['email' => $email];
+        if ($captchaToken) {
+            $payload['captcha_token'] = $captchaToken;
+        }
+        $data = $this->request('POST', '/forgot-password', null, $payload);
         return [
             'success' => $data['success'] ?? true,
             'message' => $data['message'] ?? 'If that email exists, a password reset link has been sent',
@@ -386,7 +396,7 @@ class ProjectAuthClient
      * @return array
      * @throws WOWSQLException
      */
-    public function sendOtp($email = null, $purpose = 'login', $phone = null)
+    public function sendOtp($email = null, $purpose = 'login', $phone = null, $captchaToken = null)
     {
         if (!in_array($purpose, ['login', 'signup', 'password_reset'])) {
             throw new WOWSQLException("Purpose must be 'login', 'signup', or 'password_reset'");
@@ -403,6 +413,9 @@ class ProjectAuthClient
         }
         if ($hasPhone) {
             $payload['phone'] = $phone;
+        }
+        if ($captchaToken) {
+            $payload['captcha_token'] = $captchaToken;
         }
 
         $data = $this->request('POST', '/otp/send', null, $payload);
@@ -478,16 +491,20 @@ class ProjectAuthClient
      * @return array
      * @throws WOWSQLException
      */
-    public function sendMagicLink($email, $purpose = 'login')
+    public function sendMagicLink($email, $purpose = 'login', $captchaToken = null)
     {
         if (!in_array($purpose, ['login', 'signup', 'email_verification'])) {
             throw new WOWSQLException("Purpose must be 'login', 'signup', or 'email_verification'");
         }
 
-        $data = $this->request('POST', '/magic-link/send', null, [
+        $payload = [
             'email' => $email,
             'purpose' => $purpose,
-        ]);
+        ];
+        if ($captchaToken) {
+            $payload['captcha_token'] = $captchaToken;
+        }
+        $data = $this->request('POST', '/magic-link/send', null, $payload);
         return [
             'success' => $data['success'] ?? true,
             'message' => $data['message'] ?? 'If that email exists, a magic link has been sent',
@@ -518,9 +535,13 @@ class ProjectAuthClient
      * @return array
      * @throws WOWSQLException
      */
-    public function resendVerification($email)
+    public function resendVerification($email, $captchaToken = null)
     {
-        $data = $this->request('POST', '/resend-verification', null, ['email' => $email]);
+        $payload = ['email' => $email];
+        if ($captchaToken) {
+            $payload['captcha_token'] = $captchaToken;
+        }
+        $data = $this->request('POST', '/resend-verification', null, $payload);
         return [
             'success' => $data['success'] ?? true,
             'message' => $data['message'] ?? 'If that email exists, a verification email has been sent',

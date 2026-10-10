@@ -397,6 +397,22 @@ echo $response['access_token'];
 echo $response['refresh_token'];
 ```
 
+### CAPTCHA (Turnstile)
+
+Optional. Only required when Attack Protection → Turnstile is enabled. Existing calls without a token are unchanged.
+
+```php
+// 1. GET /auth/v1/settings → captcha.site_key
+// 2. Render Cloudflare Turnstile with that site key
+// 3. Pass the token (last argument on each method):
+$auth->signUp('alice@example.com', 'SecurePass123!', null, null, $turnstileToken);
+$auth->signIn('alice@example.com', 'SecurePass123!', $turnstileToken);
+$auth->forgotPassword('alice@example.com', $turnstileToken);
+$auth->sendOtp('alice@example.com', 'login', null, $turnstileToken);
+$auth->sendMagicLink('alice@example.com', 'login', $turnstileToken);
+$auth->resendVerification('alice@example.com', $turnstileToken);
+```
+
 ### getUser
 
 ```php
